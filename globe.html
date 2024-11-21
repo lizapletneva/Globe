@@ -1,0 +1,996 @@
+
+
+
+
+
+<!--Intro-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Globe</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      overflow:hidden;
+    }
+
+    #globeViz {
+      width: 100%;
+      height: 100vh;
+      flex-grow: 1;
+      position: relative; /* Ensure it's a relative container for positioning canvas */
+    }
+
+     /* Styling for the buttons on the left */
+     .filter-buttons, .rotation-buttons {
+      position: fixed;
+      top: 20px;
+      z-index: 1002;
+    }
+
+    /* Left filter buttons */
+    .filter-buttons {
+      left: 20px;
+    }
+
+    /* Right rotation control buttons */
+    .rotation-buttons {
+      right: 20px;
+    }
+
+    .filter-buttons button, .rotation-buttons button {
+      display: block;
+      margin: 5px;
+      padding: 10px 20px;
+      background-color: #c1baba;
+      color: black;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .filter-buttons button:hover, .rotation-buttons button:hover {
+      background-color: #666;
+    }
+
+    /* Button dot styling */
+    .filter-buttons button .dot {
+      width: 10px;
+      height: 10px;
+      background-color: transparent;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 10px;
+    }
+
+    /* Styling for the pins */
+    .pin {
+      width: 1vw;
+      height: 2vh;
+      background-color: red;  /* Default color */
+      border-radius: 50%;
+      outline: 3px solid rgb(0, 0, 0);
+      cursor: pointer;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: all;
+      z-index: 100;
+    }
+
+    /* Tooltip styling */
+    .tooltip {
+      position: absolute;
+      background-color: white;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      display: none;
+      z-index: 1000;
+    }
+
+    /* Info panel styling */
+    .info-panel {
+      position: fixed;
+      bottom: 60px;
+      left: 85%;
+      transform: translateX(-50%);
+      background-color: white;
+      padding: 20px;
+      border: 5px solid red;
+      border-radius: 10px;
+      box-shadow: 0px 0px 10px rgba(187, 54, 54, 0.1);
+      width: 300px;
+      display: none;
+      z-index: 1001;
+    }
+
+    .info-panel h2 {
+      margin-top: 0;
+    }
+
+    .close-btn {
+      background-color: #f44336;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      position: absolute;
+      top: 5px;
+      right: 5px;
+    }
+
+    /* Canvas for lines */
+    #linesCanvas {
+      width: 100%;
+      height:100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1000;
+      pointer-events: none;  /* Ensure canvas does not interfere with interactions */
+    }
+  </style>
+
+
+
+
+
+
+
+
+
+  <script src="https://unpkg.com/globe.gl"></script>
+</head>
+<body>
+  <div class="filter-buttons">
+    <button id="viewAllBtn">
+      <span class="dot"></span>View All
+    </button>
+    <button id="gymnasticsBtn">
+      <span class="dot" style="background-color: red;"></span>Gymnastics Travels
+    </button>
+    <button id="placesLivedBtn">
+      <span class="dot" style="background-color: yellow;"></span>Places I've Lived
+    </button>
+    <button id="vacationsBtn">
+      <span class="dot" style="background-color: green;"></span>Vacations
+    </button>
+    <button id="otherTravelsBtn">
+      <span class="dot" style="background-color: white;"></span>Other Travels
+    </button>
+  </div>
+
+  <!-- Rotation control buttons -->
+  <div class="rotation-buttons">
+    <button id="pauseRotationBtn">Pause Rotation</button>
+    <button id="resumeRotationBtn">Resume Rotation</button>
+  </div>
+
+  <div id="globeViz"></div>
+
+  <!-- Info Panel -->
+  <div id="infoPanel" class="info-panel">
+    <button class="close-btn" id="closeInfo">Close</button>
+    <h2 id="infoTitle"></h2>
+    <p id="infoDetails"></p>
+  </div>
+
+  <!-- Canvas for lines -->
+  <canvas id="linesCanvas"></canvas>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <script type="module">
+
+    let openPin = undefined;
+
+    // Initialize the globe
+    const world = Globe({ animateIn: true })
+      (document.getElementById('globeViz'))
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png');
+
+      const locations = [
+          // COMPETITIONS
+      {
+          lat: 42.6977,
+          lng: 23.3219,
+          label: 'Sofia, Bulgaria',
+          category: 'Gymnastics',
+          visits: 3,
+          when: '2018, 2019',
+          activities: 'Rhythmic Gymnastics World Cup X2, Rhtyhmic Gymnastics World Championships'
+      },
+      {
+          lat: 40.4093,
+          lng: 49.8671,
+          label: 'Baku, Azerbaijan',
+          category: 'Gymnastics',
+          visits: 3,
+          when: '2018, 2019, 2021',
+          activities: 'Rhythmic Gymnastics World Cup x2, Rhtyhmic Gymnastics World Championships'
+      },
+      {
+          lat: 35.6762,
+          lng: 139.6503,
+          label: 'Tokyo, Japan',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2021',
+          activities: 'Summer Olympic Games'
+      },
+      {
+          lat: 34.0522,
+          lng: -118.2437,
+          label: 'Los Angeles, California',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2022',
+          activities: 'Coaching rhythmic gymnastics'
+      },
+      {
+          lat: 38.8339,
+          lng: -104.8214,
+          label: 'Colorado Springs, Colorado',
+          category: 'Gymnastics',
+          visits: '5+',
+          when: '2012 - 2017',
+          activities: 'Training and national competitions at the Olympic Training Center'
+      },
+      {
+          lat: 44.2803,
+          lng: -73.9790,
+          label: 'Lake Placid, NY',
+          category: 'Gymnastics',
+          visits: '10+',
+          when: '2008 - 2020',
+          activities: 'Training and national competitions at the Olympic Training Center'
+      },
+      {
+          lat: 55.7887,
+          lng: 49.1221,
+          label: 'Kazan, Russia',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2018, 2019',
+          activities: 'Rhythmic Gymnastics World Cup x2'
+      },
+      {
+          lat: -22.9068,
+          lng: -43.1729,
+          label: 'Rio de Janeiro, Brazil',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2021',
+          activities: 'Rhythmic Gymnastics Pan American Championships; 2021 Olympic Qualifier'
+      },
+      {
+          lat: -12.0464,
+          lng: -77.0428,
+          label: 'Lima, Peru',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2018, 2019',
+          activities: 'Pan American Championships, Pan American Games'
+      },
+      {
+          lat: 40.7128,
+          lng: -3.7038,
+          label: 'Guadalajara, Spain',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2018, 2029',
+          activities: 'Rhythmic Gymnastics World Cup x2'
+      },
+      {
+          lat: 37.1390,
+          lng: -8.5395,
+          label: 'Portimão, Portugal',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2019',
+          activities: 'Rhythmic Gymnastics World Cup'
+      },
+      {
+          lat: 43.65107,
+          lng: -79.347015,
+          label: 'Toronto, Canada',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2017',
+          activities: 'Rhythmic Gymnastics INternational Invitational'
+      },
+      {
+          lat: 41.5868,
+          lng: -93.6250,
+          label: 'Des Moines, Iowa',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2020, 2021',
+          activities: 'USA Gymnastics Championships x2'
+      },
+      {
+          lat: 39.9612,
+          lng: -82.9988,
+          label: 'Columbus, Ohio',
+          category: 'Gymnastics',
+          visits: 4,
+          when: '2013, 2014, 2015, 2016',
+          activities: 'Rhythmic Gymnastics Spring Fling Invitational'
+      },
+      {
+          lat: 38.9072,
+          lng: -77.0369,
+          label: 'Washington DC, Maryland',
+          category: 'Gymnastics',
+          visits: '10+',
+          when: '2012 - 2023',
+          activities: 'Rhythmic Gymnastics Competitions, Team USA Week (2022)'
+      },
+      {
+          lat: 39.7684,
+          lng: -86.1580,
+          label: 'Indianapolis, Indiana',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2008, 2017',
+          activities: 'First gymnastics competition ever'
+      },
+      {
+          lat: 58.3780,
+          lng: 26.7290,
+          label: 'Tartu, Estonia',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2020',
+          activities: 'Rhythmic Gymnastics World Cup'
+      },
+      {
+          lat: 32.0853,
+          lng: 34.7818,
+          label: 'Tel Aviv, Israel',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2021',
+          activities: 'Rhythmic Gymnastics Grand Prix, training for Olympics'
+      },
+      {
+          lat: 36.0726,
+          lng: -79.7910,
+          label: 'Greensboro, SC',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2018',
+          activities: 'USA Gymnastics championships'
+      },
+      {
+          lat: 28.5383,
+          lng: -81.3792,
+          label: 'Orlando, FL',
+          category: 'Gymnastics',
+          visits: '5+',
+          when: '2012 - 2022',
+          activities: 'Rhythmic Gynastics Nationals'
+      },
+      {
+          lat: 39.9526,
+          lng: -75.1652,
+          label: 'Philadelphia, PA',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2022',
+          activities: 'Coaching rhythmic gymnastics'
+      },
+      {
+          lat: 45.5051,
+          lng: -122.6750,
+          label: 'Portland, Oregon',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2008',
+          activities: 'First gymnastics nationals'
+      },
+      {
+          lat: 29.7604,
+          lng: -95.3698,
+          label: 'Houston, TX',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2013',
+          activities: 'Training at the Bella Karolyi Ranch'
+      },
+      {
+          lat: 43.0481,
+          lng: -76.1474,
+          label: 'Syracuse, NY',
+          category: 'Gymnastics',
+          visits: 4,
+          when: '2012, 2013, 2014, 2015',
+          activities: 'Rhythmic Gymnastics Invitational'
+      },
+      {
+          lat: 42.3601,
+          lng: -71.0589,
+          label: 'Boston, MA',
+          category: 'Gymnastics',
+          visits: '5+',
+          when: '2010 - 2017',
+          activities: 'Rhythmic Gymnastics Invitational'
+      },
+      {
+          lat: 36.1699,
+          lng: -115.1398,
+          label: 'Las Vegas, NV',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2017',
+          activities: 'Rhythmic Gymnastics Invitational'
+      },
+      {
+          lat: 43.0731,
+          lng: -89.4012,
+          label: 'Madison, WI',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2017',
+          activities: 'USA Gymnastics Championships'
+      },
+      {
+          lat: 42.3314,
+          lng: -83.0458,
+          label: 'Detroit, MI',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2024',
+          activities: 'USA Gymnastics Championships'
+      },
+      {
+          lat: 48.8566,
+          lng: 2.3522,
+          label: 'Paris, France',
+          category: 'Gymnastics',
+          visits: 2,
+          when: '2018, 2019',
+          activities: 'Rhythmic Gymnastics Grand Prix'
+      },
+      {
+          lat: 43.9333,
+          lng: 12.8907,
+          label: 'Pesaro, Italy',
+          category: 'Gymnastics',
+          visits: 3,
+          when: '2018, 2019, 2021',
+          activities: 'Rhythmic Gymnastics World Cup x3'
+      },
+      {
+          lat: 53.9,
+          lng: 27.5667,
+          label: 'Minsk, Belarus',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2018',
+          activities: 'Rhythmic Gymnastics World Cup'
+      },
+
+
+
+
+      // VACATIONS
+      {
+          lat: 50.1163,
+          lng: -122.9574,
+          label: 'Whistler, Canada',
+          category: 'Vacations',
+          visits: 1,
+          when: '2021',
+          activities: 'First trip with boyfriend; Skiing, snowboarding, New Years'
+      },
+      {
+          lat: 43.7102,
+          lng: 7.2620,
+          label: 'Nice, France',
+          category: 'Vacations',
+          visits: 1,
+          when: '2024',
+          activities: 'Summer trip with best friend'
+      },
+      {
+          lat: 43.5510,
+          lng: 7.0108,
+          label: 'Cannes, France',
+          category: 'Vacations',
+          visits: 1,
+          when: '2024',
+          activities: 'Visited for a day trip from Nice'
+      },
+      {
+          lat: 43.7333,
+          lng: 7.4167,
+          label: 'Monaco',
+          category: 'Vacations',
+          visits: 1,
+          when: '2024',
+          activities: 'Day trip and sightseeing from Nice, trip'
+      },
+      {
+          lat: 59.9343,
+          lng: 30.3351,
+          label: 'St. Petersburg, Russia',
+          category: 'Vacations',
+          visits: 3,
+          when: '2005, 2015, 2016',
+          activities: 'Cultural exploration, museum visits, seeing family'
+      },
+      {
+          lat: 33.6891,
+          lng: -78.8867,
+          label: 'Myrtle Beach, SC',
+          category: 'Vacations',
+          visits: 2,
+          when: '2018, 2020',
+          activities: 'Beach, sightseeing, relaxation'
+      },
+      {
+          lat: 27.9506,
+          lng: -82.4572,
+          label: 'Tampa, FL',
+          category: 'Vacations',
+          visits: 1,
+          when: '2021',
+          activities: 'Beach, sightseeing, relaxation'
+      },
+
+
+
+
+
+      // PLACES IVE LIVED
+      {
+          lat: 59.9343,
+          lng: 30.3351,
+          label: 'St. Petersburg, Russia',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2002 - 2005',
+          activities: 'Born and lived for 3 years'
+      },
+      {
+          lat: 40.8584,
+          lng: -74.2711,
+          label: 'Caldwell, NJ',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2005 - 2017',
+          activities: 'Where I grew up (ages 3 - 15)'
+      },
+      {
+          lat: 42.1954,
+          lng: -87.9101,
+          label: 'Deerfield, Illinois',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2017 - 2021',
+          activities: 'Lived here for 4 years to train on the USA National Team'
+      },
+      {
+          lat: 42.0874,
+          lng: -87.9310,
+          label: 'Wheeling, IL',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2020 - 2021',
+          activities: 'Lived here for 1 year once COVID-19 hit'
+      },
+      {
+          lat: 40.7973,
+          lng: -74.2002,
+          label: 'Bloomfield, NJ',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2021 - 2022',
+          activities: 'Lived and worked'
+      },
+      {
+          lat: 25.7617,
+          lng: -80.1918,
+          label: 'Miami, FL',
+          category: 'Places I\'ve Lived',
+          //visits: 1,
+          when: '2022 - Now',
+          activities: 'Moved here for University and hope to continue living here'
+      },
+
+
+
+
+
+      // OTHER TRAVELS
+      {
+          lat: 45.4408,
+          lng: 12.3155,
+          label: 'Venice, Italy',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2019',
+          activities: 'Sightseeing, canals'
+      },
+      {
+          lat: 35.9132,
+          lng: -79.0558,
+          label: 'Chapel Hill, NC',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2018',
+          activities: 'University visit, sightseeing'
+      },
+      {
+          lat: 47.6062,
+          lng: -122.3321,
+          label: 'Seattle, WA',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2020',
+          activities: 'Sightseeing, tech events'
+      },
+      {
+          lat: 30.2490,
+          lng: -87.7111,
+          label: 'Gulf Shores, Alabama',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2021',
+          activities: 'Beach, relaxation'
+      },
+      {
+          lat: 46.8139,
+          lng: -71.2082,
+          label: 'Quebec, Canada',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2020',
+          activities: 'Sightseeing, food'
+      },
+      {
+          lat: 40.7831,
+          lng: -73.9712,
+          label: 'Manhattan, NYC',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2021',
+          activities: 'Sightseeing, shopping, Broadway shows'
+      },
+      {
+          lat: 38.9072,
+          lng: -77.0369,
+          label: 'Washington DC, Maryland',
+          category: 'Other Travels',
+          visits: '5+',
+          when: '2015-2022',
+          activities: 'Historical sites, museums, (Team USA week - 2022)'
+      },
+      {
+          lat: 55.7558,
+          lng: 37.6173,
+          label: 'Moscow, Russia',
+          category: 'Gymnastics',
+          visits: 1,
+          when: '2018',
+          activities: 'Detained lol'
+      },
+      {
+          lat: 41.9028,
+          lng: 12.4964,
+          label: 'Rome, Italy',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2019',
+          activities: 'Sightseeing, historical tours'
+      },
+      {
+          lat: 45.4384,
+          lng: 10.9916,
+          label: 'Verona, Italy',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2019',
+          activities: 'Sightseeing, cultural exploration'
+      },
+      {
+          lat: 45.4064,
+          lng: 11.8768,
+          label: 'Padova, Italy',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2019',
+          activities: 'Sightseeing, university visit'
+      },
+
+
+
+
+
+      //Doubles
+      {
+          lat: 25.7617,
+          lng: -80.1918,
+          label: 'Miami, FL',
+          category: 'Vacations',
+          visits: 1,
+          when: '2022',
+          activities: 'Visited for a week with my parents'
+      },
+      {
+          lat: 34.0522,
+          lng: -118.2437,
+          label: 'Los Angeles, California',
+          category: 'Other Travels',
+          visits: 1,
+          when: '2022',
+          activities: 'Visiting a close friend'
+      },
+      {
+          lat: 28.5383,
+          lng: -81.3792,
+          label: 'Orlando, FL',
+          category: 'Vacations',
+          visits: '1',
+          when: '2011',
+          activities: 'Disney World'
+      },
+
+      ]; // END OF DATA 
+
+    // Control the globe rotation with Pause and Resume buttons
+    const pauseRotationBtn = document.getElementById('pauseRotationBtn');
+    const resumeRotationBtn = document.getElementById('resumeRotationBtn');
+    const linesCanvas = document.getElementById('linesCanvas');
+    const ctx = linesCanvas.getContext('2d'); // Get 2d context for drawing lines
+
+    // Create a container for the tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    document.body.appendChild(tooltip);
+
+    // Info Panel and Close Button
+    const infoPanel = document.getElementById('infoPanel');
+    const infoTitle = document.getElementById('infoTitle');
+    const infoDetails = document.getElementById('infoDetails');
+    const closeInfoButton = document.getElementById('closeInfo');
+
+    // Create pins with different colors based on the category
+    const categoryColors = {
+      'Gymnastics': 'red',
+      'Places I\'ve Lived': 'yellow',
+      'Vacations': 'green',
+      'Other Travels': 'white'
+    };
+
+    // Add HTML elements (pins) to the globe
+    const pinElements = locations.map(d => {
+      const pin = document.createElement('div');
+      pin.className = 'pin';
+      pin.style.backgroundColor = categoryColors[d.category];
+
+      // Show the tooltip when pin is hovered
+      pin.addEventListener('mouseenter', () => {
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = d.label;
+        world.controls().autoRotate = false;
+      });
+      pin.addEventListener('mousemove', (e) => {
+        tooltip.style.left = e.pageX + 10 + 'px';
+        tooltip.style.top = e.pageY - 30 + 'px';
+      });
+      pin.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+        world.controls().autoRotate = true;
+        world.controls().autoRotateSpeed = 0.35;
+      });
+
+      // Handle click event to show the info panel
+      pin.onclick = () => {
+        infoTitle.textContent = `${d.label}`;
+        infoDetails.innerHTML = `When: ${d.when}<br>Times visited: ${d.visits}<br>Activities: ${d.activities}`;
+        infoPanel.style.display = 'block'; // Show the panel
+        openPin = pin;
+        world.controls().autoRotate = false; // Stop the globe rotation
+      };
+
+      return {
+        element: pin,
+        data: d
+      };
+    });
+
+     // Pause rotation
+     pauseRotationBtn.onclick = () => {
+      world.controls().autoRotate = false;
+    };
+
+    // Resume rotation
+    resumeRotationBtn.onclick = () => {
+      world.controls().autoRotate = true;
+      world.controls().autoRotateSpeed = 0.35;
+    };
+
+
+    // Add the pins to the globe
+    world.htmlElementsData(pinElements.map(pin => pin.data))
+      .htmlLat(d => d.lat)
+      .htmlLng(d => d.lng)
+      .htmlElement(d => {
+        return pinElements.find(pin => pin.data === d).element;
+      })
+      .htmlAltitude(0.00);
+
+    // Close the info panel when clicking the close button
+    closeInfoButton.onclick = () => {
+      infoPanel.style.display = 'none';  // Hide the info panel
+      world.controls().autoRotate = true; // Resume the globe rotation
+      openPin = undefined;
+    };
+
+        // Replace the existing filtering function with this
+    function filterPins(category) {
+      // Remove all existing HTML elements
+      world.htmlElementsData(
+        category === 'All' 
+          ? locations 
+          : locations.filter(loc => loc.category === category)
+      )
+      .htmlLat(d => d.lat)
+      .htmlLng(d => d.lng)
+      .htmlElement(d => {
+        const matchingPinObj = pinElements.find(pin => pin.data === d);
+        return matchingPinObj ? matchingPinObj.element : null;
+      })
+      .htmlAltitude(0.00);
+    }
+
+    // Update the event listeners to ensure filtering works
+    document.getElementById('viewAllBtn').addEventListener('click', () => {
+      filterPins('All');
+      // Reset all dot colors
+      document.querySelectorAll('.filter-buttons button .dot').forEach((dot, index) => {
+        dot.style.backgroundColor = index === 0 ? 'transparent' : categoryColors[Object.keys(categoryColors)[index - 1]];
+      });
+    });
+
+    document.getElementById('gymnasticsBtn').addEventListener('click', () => {
+      filterPins('Gymnastics');
+    });
+
+    document.getElementById('placesLivedBtn').addEventListener('click', () => {
+      filterPins('Places I\'ve Lived');
+    });
+
+    document.getElementById('vacationsBtn').addEventListener('click', () => {
+      filterPins('Vacations');
+    });
+
+    document.getElementById('otherTravelsBtn').addEventListener('click', () => {
+      filterPins('Other Travels');
+    });
+
+
+    function draw() {
+      // Resize canvas to match window
+      linesCanvas.width = window.innerWidth;
+      linesCanvas.height = window.innerHeight;
+      ctx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+
+      if (openPin) {
+        // Get the pin's bounding rectangle relative to the viewport
+        const pinRect = openPin.getBoundingClientRect();
+
+        // Logging of pin position
+        console.log('Pin Position:', {
+          top: pinRect.top,
+          left: pinRect.left,
+          bottom: pinRect.bottom,
+          right: pinRect.right,
+        });
+
+        // Check if pin is completely out of view or behind globe
+        const isPinVisible = 
+          pinRect.top > 0 && 
+          pinRect.left > 0 && 
+          pinRect.bottom < window.innerHeight && 
+          pinRect.right < window.innerWidth;
+
+        if (pinRect.top == 0) {
+          // If pin is off-screen or behind globe, hide the infoPanel
+          infoPanel.style.display = 'none';
+          ctx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+          openPin = undefined;
+          return;
+        }
+
+        // Get the info panel's position and dimensions
+        const infoPanelRect = infoPanel.getBoundingClientRect();
+
+        // Drawing configuration
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]); // Create a dashed line effect
+
+        // Calculate pin center
+        const pinCenterX = pinRect.left + pinRect.width / 2;
+        const pinCenterY = pinRect.top + pinRect.height / 2;
+
+        // Draw lines to info panel
+        ctx.beginPath();
+        ctx.moveTo(pinCenterX, pinCenterY);
+        ctx.lineTo(infoPanelRect.left, infoPanelRect.top);
+        ctx.moveTo(pinCenterX, pinCenterY);
+        ctx.lineTo(infoPanelRect.left, infoPanelRect.bottom);
+        ctx.stroke();
+      }
+      
+      requestAnimationFrame(draw);
+    }
+
+    requestAnimationFrame(draw);
+
+    // Modify your pin click handler to reset functionality
+    function handlePinClick(pin) {
+      // If this pin is already open, close it
+      if (openPin === pin) {
+        infoPanel.style.display = 'none';
+        ctx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+        openPin = null;
+        return;
+      }
+
+      // Set the new open pin
+      openPin = pin;
+      
+      // Show info panel
+      infoPanel.style.display = 'block';
+      
+    }
+    
+
+    // Modify the pin click handler to reset the drawing context
+    pinElements.map(pinObj => {
+      const pin = pinObj.element;
+      
+      pin.onclick = () => {
+        // Clear previous canvas
+        ctx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+        
+        infoTitle.textContent = `${pinObj.data.label}`;
+        infoDetails.innerHTML = `When: ${pinObj.data.when}<br>Times visited: ${pinObj.data.visits}<br>Activities: ${pinObj.data.activities}`;
+        infoPanel.style.display = 'block';
+        openPin = pin;
+        world.controls().autoRotate = false;
+      };
+
+      return pinObj;
+    });
+
+  
+  
+  </script>
+</body>
+</html>
